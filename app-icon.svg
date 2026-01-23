@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4B06A"/>
+      <stop offset="100%" style="stop-color:#C4A35A"/>
+    </linearGradient>
+    <linearGradient id="navyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2B3C4E"/>
+      <stop offset="100%" style="stop-color:#1E2A3A"/>
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FEFCF9"/>
+      <stop offset="100%" style="stop-color:#F5F1E8"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- App icon background with rounded corners -->
+  <rect x="0" y="0" width="512" height="512" rx="96" ry="96" fill="url(#bgGrad)"/>
+  
+  <!-- Outer border -->
+  <rect x="16" y="16" width="480" height="480" rx="80" ry="80" fill="none" stroke="url(#goldGrad)" stroke-width="3" opacity="0.4"/>
+  
+  <!-- Shepherd's Staff - centered and prominent -->
+  <g transform="translate(256, 270)">
+    <path 
+      d="M -8 120 L -8 -30 Q -8 -90 35 -115 Q 75 -145 75 -95 Q 75 -65 40 -55 Q 15 -48 8 -35"
+      fill="none" 
+      stroke="url(#navyGrad)" 
+      stroke-width="14" 
+      stroke-linecap="round"
+      stroke-linejoin="round"/>
+    <path 
+      d="M -3 105 L -3 -22 Q -3 -75 30 -95 Q 60 -118 60 -82 Q 60 -62 35 -55"
+      fill="none" 
+      stroke="#C4A35A" 
+      stroke-width="4" 
+      stroke-linecap="round"
+      opacity="0.5"/>
+  </g>
+  
+  <!-- Dove - simplified for icon -->
+  <g transform="translate(256, 235)">
+    <path 
+      d="M -60 15 Q -30 -50 50 -35 Q 80 -30 88 0 Q 80 8 65 8 L -45 22 Q -68 22 -60 15"
+      fill="url(#goldGrad)"
+      opacity="0.9"/>
+    <path 
+      d="M -15 0 Q 10 -55 70 -48 Q 50 -22 40 -8 Q 15 -8 -15 0"
+      fill="#FEFCF9"
+      opacity="0.95"/>
+    <circle cx="62" cy="-18" r="4" fill="#1E2A3A"/>
+  </g>
+  
+  <!-- Subtle light rays from top -->
+  <g opacity="0.12" stroke="#C4A35A" stroke-width="2">
+    <line x1="256" y1="70" x2="256" y2="50"/>
+    <line x1="310" y1="85" x2="325" y2="70"/>
+    <line x1="202" y1="85" x2="187" y2="70"/>
+    <line x1="355" y1="115" x2="370" y2="105"/>
+    <line x1="157" y1="115" x2="142" y2="105"/>
+  </g>
+</svg>

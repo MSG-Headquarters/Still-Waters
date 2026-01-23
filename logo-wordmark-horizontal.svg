@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 150" width="600" height="150">
+  <defs>
+    <linearGradient id="goldGradH" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4B06A"/>
+      <stop offset="100%" style="stop-color:#C4A35A"/>
+    </linearGradient>
+    <linearGradient id="navyGradH" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2B3C4E"/>
+      <stop offset="100%" style="stop-color:#1E2A3A"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Icon (small version) -->
+  <g transform="translate(75, 75)">
+    <!-- Circle background -->
+    <circle cx="0" cy="0" r="55" fill="#F5F1E8"/>
+    <circle cx="0" cy="0" r="52" fill="none" stroke="url(#goldGradH)" stroke-width="1.5" opacity="0.5"/>
+    
+    <!-- Staff -->
+    <path 
+      d="M -3 30 L -3 -10 Q -3 -28 10 -38 Q 22 -48 22 -33 Q 22 -23 12 -20 Q 5 -18 2 -12"
+      fill="none" 
+      stroke="url(#navyGradH)" 
+      stroke-width="5" 
+      stroke-linecap="round"/>
+    
+    <!-- Dove -->
+    <path 
+      d="M -20 5 Q -10 -15 15 -10 Q 25 -9 27 0 Q 25 3 20 3 L -15 8 Q -22 8 -20 5"
+      fill="url(#goldGradH)"
+      opacity="0.85"/>
+    <path 
+      d="M -5 0 Q 2 -18 22 -15 Q 15 -7 12 -2 Q 5 -2 -5 0"
+      fill="#FEFCF9"
+      opacity="0.9"/>
+    <circle cx="20" cy="-6" r="1.5" fill="#1E2A3A"/>
+  </g>
+  
+  <!-- Wordmark: YESHUA -->
+  <text x="150" y="70" font-family="'Cormorant Garamond', 'EB Garamond', Georgia, serif" font-size="52" font-weight="500" fill="#1E2A3A" letter-spacing="6">YESHUA</text>
+  
+  <!-- Wordmark: GUIDE -->
+  <text x="150" y="115" font-family="'Source Sans Pro', 'Helvetica Neue', sans-serif" font-size="26" font-weight="300" fill="#6B5B4F" letter-spacing="12">GUIDE</text>
+  
+  <!-- Decorative line -->
+  <line x1="150" y1="78" x2="420" y2="78" stroke="url(#goldGradH)" stroke-width="1" opacity="0.4"/>
+</svg>
