@@ -1,0 +1,217 @@
+/**
+ * Yeshua Guide - Brand Colors & Design Tokens
+ * Use these CSS custom properties throughout the application
+ */
+
+:root {
+  /* ============================================
+     PRIMARY COLORS
+     ============================================ */
+  
+  /* Parchment Cream - Primary background, aged warmth */
+  --color-parchment: #F5F1E8;
+  --color-parchment-light: #FEFCF9;
+  --color-parchment-dark: #E8E4DB;
+  
+  /* Midnight Navy - Deep text, thoughtful contrast */
+  --color-navy: #1E2A3A;
+  --color-navy-light: #2B3C4E;
+  --color-navy-dark: #151E28;
+  
+  /* Candlelight Gold - Sacred accents, divine highlights */
+  --color-gold: #C4A35A;
+  --color-gold-light: #D4B06A;
+  --color-gold-dark: #B8954D;
+  
+  /* ============================================
+     SECONDARY COLORS
+     ============================================ */
+  
+  /* Olive Sage - Growth, peace, natural harmony */
+  --color-sage: #8B9A7D;
+  --color-sage-light: #A3B295;
+  --color-sage-dark: #738268;
+  
+  /* Shepherd Brown - Grounding, earthly connection */
+  --color-brown: #6B5B4F;
+  --color-brown-light: #8A7A6E;
+  --color-brown-dark: #524438;
+  
+  /* Living Water Blue - Spirit, flow, refreshment */
+  --color-water: #6B8FAD;
+  --color-water-light: #8AABC4;
+  --color-water-dark: #567494;
+  
+  /* ============================================
+     SEMANTIC COLORS
+     ============================================ */
+  
+  /* Text colors */
+  --text-primary: var(--color-navy);
+  --text-secondary: var(--color-brown);
+  --text-muted: #8A8A8A;
+  --text-inverse: var(--color-parchment-light);
+  
+  /* Background colors */
+  --bg-primary: var(--color-parchment);
+  --bg-secondary: var(--color-parchment-light);
+  --bg-tertiary: var(--color-parchment-dark);
+  --bg-dark: var(--color-navy);
+  
+  /* Interactive colors */
+  --accent-primary: var(--color-gold);
+  --accent-secondary: var(--color-sage);
+  --accent-tertiary: var(--color-water);
+  
+  /* Status colors */
+  --color-success: #7A9E7A;
+  --color-warning: #D4A35A;
+  --color-error: #C47A7A;
+  --color-info: var(--color-water);
+  
+  /* Border colors */
+  --border-light: rgba(30, 42, 58, 0.1);
+  --border-medium: rgba(30, 42, 58, 0.2);
+  --border-dark: rgba(30, 42, 58, 0.3);
+  
+  /* ============================================
+     MOOD COLORS (for mood selector)
+     ============================================ */
+  
+  --mood-grateful: #E8B86D;
+  --mood-struggling: #7B8794;
+  --mood-seeking: #A8D5BA;
+  --mood-anxious: #D4A5A5;
+  --mood-strong: #9DB4C0;
+  --mood-questioning: #C9B1FF;
+  
+  /* ============================================
+     GRADIENTS
+     ============================================ */
+  
+  --gradient-gold: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold-dark) 100%);
+  --gradient-navy: linear-gradient(180deg, var(--color-navy-light) 0%, var(--color-navy-dark) 100%);
+  --gradient-sage: linear-gradient(135deg, var(--color-sage-light) 0%, var(--color-sage-dark) 100%);
+  --gradient-parchment: linear-gradient(180deg, var(--color-parchment-light) 0%, var(--color-parchment-dark) 100%);
+  
+  /* ============================================
+     SHADOWS
+     ============================================ */
+  
+  --shadow-sm: 0 1px 2px rgba(30, 42, 58, 0.05);
+  --shadow-md: 0 4px 6px rgba(30, 42, 58, 0.07);
+  --shadow-lg: 0 10px 15px rgba(30, 42, 58, 0.1);
+  --shadow-xl: 0 20px 25px rgba(30, 42, 58, 0.12);
+  --shadow-gold: 0 4px 16px rgba(196, 163, 90, 0.3);
+  
+  /* ============================================
+     TYPOGRAPHY
+     ============================================ */
+  
+  --font-display: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+  --font-body: 'Source Sans Pro', 'Source Sans 3', -apple-system, sans-serif;
+  --font-scripture: 'EB Garamond', 'Cormorant Garamond', Georgia, serif;
+  
+  /* Font sizes */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 1.875rem;  /* 30px */
+  --text-4xl: 2.25rem;   /* 36px */
+  --text-5xl: 3rem;      /* 48px */
+  
+  /* Line heights */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+  --leading-loose: 2;
+  
+  /* Letter spacing */
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+  
+  /* ============================================
+     SPACING
+     ============================================ */
+  
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+  
+  /* ============================================
+     BORDER RADIUS
+     ============================================ */
+  
+  --radius-sm: 0.25rem;   /* 4px */
+  --radius-md: 0.5rem;    /* 8px */
+  --radius-lg: 0.75rem;   /* 12px */
+  --radius-xl: 1rem;      /* 16px */
+  --radius-2xl: 1.5rem;   /* 24px */
+  --radius-full: 9999px;
+  
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+  
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+  --transition-slower: 600ms ease;
+  
+  /* ============================================
+     Z-INDEX SCALE
+     ============================================ */
+  
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-tooltip: 700;
+}
+
+/* ============================================
+   DARK MODE (optional)
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  :root.auto-dark {
+    --bg-primary: var(--color-navy);
+    --bg-secondary: var(--color-navy-light);
+    --bg-tertiary: var(--color-navy-dark);
+    
+    --text-primary: var(--color-parchment);
+    --text-secondary: var(--color-parchment-dark);
+    
+    --border-light: rgba(245, 241, 232, 0.1);
+    --border-medium: rgba(245, 241, 232, 0.2);
+  }
+}
+
+/* Manual dark mode class */
+.dark-mode {
+  --bg-primary: var(--color-navy);
+  --bg-secondary: var(--color-navy-light);
+  --bg-tertiary: var(--color-navy-dark);
+  
+  --text-primary: var(--color-parchment);
+  --text-secondary: var(--color-parchment-dark);
+  
+  --border-light: rgba(245, 241, 232, 0.1);
+  --border-medium: rgba(245, 241, 232, 0.2);
+}
