@@ -1,7 +1,7 @@
 /**
- * YESHUA GUIDE - Faith Companion API
+ * STILL WATERS - Faith Companion API
  * Main Server Entry Point
- * Version 1.0.0
+ * Version 1.1.0 - With Stripe Subscriptions
  */
 
 require('dotenv').config();
@@ -21,15 +21,25 @@ const scriptureRoutes = require('./routes/scriptures');
 const prayerRoutes = require('./routes/prayers');
 const groupRoutes = require('./routes/groups');
 const notificationRoutes = require('./routes/notifications');
+const subscriptionRoutes = require('./routes/subscriptions');
+const webhookRoutes = require('./routes/webhooks');
 
 // Import middleware
 const { authenticateToken } = require('./middleware/auth');
 const { errorHandler } = require('./middleware/errorHandler');
 const { requestLogger } = require('./middleware/logger');
+const { attachSubscription, checkMessageLimit } = require('./middleware/subscription');
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3006;
+
+// ============================================================================
+// WEBHOOK ROUTE (Must be before body parsing middleware!)
+// ============================================================================
+
+// Stripe webhooks need raw body for signature verification
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
 
 // ============================================================================
 // GLOBAL MIDDLEWARE
@@ -46,7 +56,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID']
 }));
 
-// Body parsing
+// Body parsing (AFTER webhook route which needs raw body)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -108,8 +118,8 @@ app.set('anthropic', anthropic);
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
-    service: 'yeshua-guide-api',
-    version: '1.0.0',
+    service: 'still-waters-api',
+    version: '1.1.0',
     timestamp: new Date().toISOString()
   });
 });
@@ -125,14 +135,28 @@ app.get('/health/detailed', authenticateToken, async (req, res) => {
     
     const dbStatus = error ? 'unhealthy' : 'healthy';
     
+    // Check Stripe connection
+    let stripeStatus = 'healthy';
+    try {
+      if (process.env.STRIPE_SECRET_KEY) {
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        await stripe.products.list({ limit: 1 });
+      } else {
+        stripeStatus = 'not configured';
+      }
+    } catch (e) {
+      stripeStatus = 'unhealthy';
+    }
+    
     res.json({
       status: dbStatus === 'healthy' ? 'healthy' : 'degraded',
-      service: 'yeshua-guide-api',
-      version: '1.0.0',
+      service: 'still-waters-api',
+      version: '1.1.0',
       timestamp: new Date().toISOString(),
       checks: {
         database: dbStatus,
-        ai: 'healthy' // Would add actual AI health check in production
+        ai: 'healthy',
+        stripe: stripeStatus
       }
     });
   } catch (err) {
@@ -147,17 +171,23 @@ app.get('/health/detailed', authenticateToken, async (req, res) => {
 // API ROUTES
 // ============================================================================
 
+// Webhook routes (no auth required, uses signature verification)
+app.use('/api/webhooks/stripe', webhookRoutes);
+
 // Public routes
 app.use('/api/auth', authRoutes);
 
-// Protected routes (require authentication)
-app.use('/api/users', authenticateToken, userRoutes);
-app.use('/api/conversations', authenticateToken, conversationRoutes);
-app.use('/api/devotionals', authenticateToken, devotionalRoutes);
-app.use('/api/scriptures', authenticateToken, scriptureRoutes);
-app.use('/api/prayers', authenticateToken, prayerRoutes);
-app.use('/api/groups', authenticateToken, groupRoutes);
-app.use('/api/notifications', authenticateToken, notificationRoutes);
+// Subscription routes (protected)
+app.use('/api/subscriptions', authenticateToken, subscriptionRoutes);
+
+// Protected routes with subscription awareness
+app.use('/api/users', authenticateToken, attachSubscription, userRoutes);
+app.use('/api/conversations', authenticateToken, attachSubscription, conversationRoutes);
+app.use('/api/devotionals', authenticateToken, attachSubscription, devotionalRoutes);
+app.use('/api/scriptures', authenticateToken, attachSubscription, scriptureRoutes);
+app.use('/api/prayers', authenticateToken, attachSubscription, prayerRoutes);
+app.use('/api/groups', authenticateToken, attachSubscription, groupRoutes);
+app.use('/api/notifications', authenticateToken, attachSubscription, notificationRoutes);
 
 // ============================================================================
 // ERROR HANDLING
@@ -183,15 +213,16 @@ app.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
-║   🕊️  YESHUA GUIDE API                                        ║
+║   🕊️  STILL WATERS API                                        ║
 ║   Faith Companion Backend Service                             ║
 ║                                                               ║
 ║   Server running on port ${PORT}                                ║
 ║   Environment: ${process.env.NODE_ENV || 'development'}                            ║
 ║                                                               ║
 ║   Endpoints:                                                  ║
-║   • Health: http://localhost:${PORT}/health                     ║
-║   • API:    http://localhost:${PORT}/api                        ║
+║   • Health:        http://localhost:${PORT}/health              ║
+║   • API:           http://localhost:${PORT}/api                 ║
+║   • Subscriptions: http://localhost:${PORT}/api/subscriptions   ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
   `);
