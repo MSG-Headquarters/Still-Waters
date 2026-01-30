@@ -23,6 +23,8 @@ const groupRoutes = require('./routes/groups');
 const notificationRoutes = require('./routes/notifications');
 const subscriptionRoutes = require('./routes/subscriptions');
 const webhookRoutes = require('./routes/webhooks');
+const communityRoutes = require('./routes/community');
+const adminRoutes = require('./routes/admin');
 
 // Import middleware
 const { authenticateToken } = require('./middleware/auth');
@@ -170,6 +172,9 @@ app.get('/health/detailed', authenticateToken, async (req, res) => {
 // ============================================================================
 // API ROUTES
 // ============================================================================
+
+app.use('/api/community', authenticateToken, attachSubscription, communityRoutes);
+app.use('/api/admin', authenticateToken, adminRoutes);
 
 // Webhook routes (no auth required, uses signature verification)
 app.use('/api/webhooks/stripe', webhookRoutes);

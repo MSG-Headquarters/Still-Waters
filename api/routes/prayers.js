@@ -1,470 +1,288 @@
 /**
  * Prayers Routes
- * Handles prayer requests, prayer wall, and personal prayer journal
+ * Handles prayer requests with community visibility
  */
 
 const express = require('express');
 const router = express.Router();
 
 // ============================================================================
-// PRAYER REQUESTS (Community)
+// GET /api/prayers - Get prayers based on view type
 // ============================================================================
 
-// GET /api/prayers/requests - Get community prayer requests
-router.get('/requests', async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const supabase = req.app.get('supabase');
-    const { limit = 20, offset = 0, category, visibility = 'community' } = req.query;
-    
-    let query = supabase
-      .from('prayer_requests')
-      .select(`
-        id,
-        title,
-        content,
-        category,
-        visibility,
-        is_anonymous,
-        status,
-        prayer_count,
-        encouragement_count,
-        created_at,
-        user:user_id (
+    const { view = 'journal', limit = 20, offset = 0 } = req.query;
+    // view: 'journal' (my private), 'community' (friends), 'public'
+
+    let prayers = [];
+
+    if (view === 'journal') {
+      // Get user's own prayers (all visibilities)
+      const { data, error } = await supabase
+        .from('prayer_requests')
+        .select(`
           id,
-          display_name,
-          avatar_url
-        )
-      `, { count: 'exact' })
-      .eq('status', 'active')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-    
-    // Filter by visibility
-    if (visibility === 'community') {
-      query = query.eq('visibility', 'community');
-    } else if (visibility === 'friends') {
-      // Get user's friends
-      const { data: relationships } = await supabase
-        .from('user_relationships')
-        .select('requester_id, addressee_id')
-        .or(`requester_id.eq.${req.userId},addressee_id.eq.${req.userId}`)
+          content,
+          visibility,
+          is_anonymous,
+          category,
+          is_answered,
+          answered_at,
+          answer_notes,
+          created_at
+        `)
+        .eq('user_id', req.userId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + parseInt(limit) - 1);
+
+      if (error) throw error;
+      prayers = data || [];
+
+    } else if (view === 'community') {
+      // Get prayers from friends (visibility = 'community' or 'public')
+      
+      // First get friend IDs
+      const { data: connections } = await supabase
+        .from('user_connections')
+        .select('requester_id, recipient_id')
+        .or(`requester_id.eq.${req.userId},recipient_id.eq.${req.userId}`)
         .eq('status', 'accepted');
-      
-      const friendIds = relationships?.map(r => 
-        r.requester_id === req.userId ? r.addressee_id : r.requester_id
+
+      const friendIds = connections?.map(c => 
+        c.requester_id === req.userId ? c.recipient_id : c.requester_id
       ) || [];
-      
-      query = query.in('user_id', [...friendIds, req.userId]);
-    }
-    
-    if (category) {
-      query = query.eq('category', category);
-    }
-    
-    const { data: requests, error, count } = await query;
-    
-    if (error) throw error;
-    
-    // Hide user info for anonymous requests
-    const processedRequests = requests.map(r => ({
-      ...r,
-      user: r.is_anonymous ? null : r.user
-    }));
-    
-    res.json({
-      requests: processedRequests,
-      pagination: {
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        total: count
+
+      // Include self for community view
+      friendIds.push(req.userId);
+
+      if (friendIds.length > 0) {
+        const { data, error } = await supabase
+          .from('prayer_requests')
+          .select(`
+            id,
+            user_id,
+            content,
+            visibility,
+            is_anonymous,
+            category,
+            is_answered,
+            created_at,
+            users!inner(display_name, sw_code)
+          `)
+          .in('user_id', friendIds)
+          .in('visibility', ['community', 'public'])
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + parseInt(limit) - 1);
+
+        if (error) throw error;
+        prayers = data || [];
       }
-    });
+
+    } else if (view === 'public') {
+      // Get all public prayers
+      const { data, error } = await supabase
+        .from('prayer_requests')
+        .select(`
+          id,
+          user_id,
+          content,
+          visibility,
+          is_anonymous,
+          category,
+          is_answered,
+          created_at,
+          users!inner(display_name, sw_code)
+        `)
+        .eq('visibility', 'public')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + parseInt(limit) - 1);
+
+      if (error) throw error;
+      prayers = data || [];
+    }
+
+    // Get prayer counts for all returned prayers
+    const prayerIds = prayers.map(p => p.id);
+    
+    let prayCounts = {};
+    let userPrayed = {};
+
+    if (prayerIds.length > 0) {
+      // Get pray counts
+      const { data: interactions } = await supabase
+        .from('prayer_interactions')
+        .select('prayer_id')
+        .in('prayer_id', prayerIds)
+        .eq('interaction_type', 'prayed');
+
+      interactions?.forEach(i => {
+        prayCounts[i.prayer_id] = (prayCounts[i.prayer_id] || 0) + 1;
+      });
+
+      // Check which ones current user has prayed for
+      const { data: userInteractions } = await supabase
+        .from('prayer_interactions')
+        .select('prayer_id')
+        .in('prayer_id', prayerIds)
+        .eq('user_id', req.userId)
+        .eq('interaction_type', 'prayed');
+
+      userInteractions?.forEach(i => {
+        userPrayed[i.prayer_id] = true;
+      });
+    }
+
+    // Format response
+    const formattedPrayers = prayers.map(p => ({
+      id: p.id,
+      content: p.content,
+      visibility: p.visibility,
+      category: p.category,
+      is_answered: p.is_answered,
+      answered_at: p.answered_at,
+      answer_notes: p.answer_notes,
+      created_at: p.created_at,
+      is_own: p.user_id === req.userId,
+      author: p.is_anonymous ? {
+        display_name: 'Anonymous',
+        sw_code: null
+      } : {
+        display_name: p.users?.display_name || 'A fellow believer',
+        sw_code: p.users?.sw_code
+      },
+      pray_count: prayCounts[p.id] || 0,
+      has_prayed: userPrayed[p.id] || false
+    }));
+
+    res.json({ prayers: formattedPrayers });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/prayers/requests - Create prayer request
-router.post('/requests', async (req, res, next) => {
+// ============================================================================
+// POST /api/prayers - Create a new prayer
+// ============================================================================
+
+router.post('/', async (req, res, next) => {
   try {
     const supabase = req.app.get('supabase');
-    const { 
-      title, 
-      content, 
-      category, 
-      visibility = 'community', 
-      isAnonymous = false,
-      groupId,
-      expiresAt 
-    } = req.body;
-    
+    const { content, visibility = 'private', is_anonymous = false, category } = req.body;
+
     if (!content || content.trim().length === 0) {
       return res.status(400).json({
         error: 'Bad request',
-        message: 'Prayer request content is required'
+        message: 'Prayer content is required'
       });
     }
-    
-    // Validate visibility
-    const validVisibilities = ['private', 'friends', 'group', 'community'];
+
+    const validVisibilities = ['private', 'community', 'public'];
     if (!validVisibilities.includes(visibility)) {
       return res.status(400).json({
         error: 'Bad request',
-        message: `Visibility must be one of: ${validVisibilities.join(', ')}`
+        message: 'Visibility must be private, community, or public'
       });
     }
-    
-    // If group visibility, verify membership
-    if (visibility === 'group') {
-      if (!groupId) {
-        return res.status(400).json({
-          error: 'Bad request',
-          message: 'Group ID required for group visibility'
-        });
-      }
-      
-      const { data: membership } = await supabase
-        .from('group_members')
-        .select('id')
-        .eq('group_id', groupId)
-        .eq('user_id', req.userId)
-        .eq('status', 'active')
-        .single();
-      
-      if (!membership) {
-        return res.status(403).json({
-          error: 'Forbidden',
-          message: 'You must be a group member to post there'
-        });
-      }
-    }
-    
-    const { data: request, error } = await supabase
+
+    const { data: prayer, error } = await supabase
       .from('prayer_requests')
       .insert({
         user_id: req.userId,
-        title: title || null,
         content: content.trim(),
-        category: category || null,
         visibility,
-        is_anonymous: isAnonymous,
-        group_id: groupId || null,
-        expires_at: expiresAt || null
+        is_anonymous,
+        category: category || null
       })
       .select()
       .single();
-    
+
     if (error) throw error;
-    
-    res.status(201).json({ request });
+
+    res.status(201).json({
+      message: 'Prayer created',
+      prayer
+    });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/prayers/requests/:id - Get specific prayer request
-router.get('/requests/:id', async (req, res, next) => {
+// ============================================================================
+// GET /api/prayers/:id - Get single prayer
+// ============================================================================
+
+router.get('/:id', async (req, res, next) => {
   try {
     const supabase = req.app.get('supabase');
     const { id } = req.params;
-    
-    const { data: request, error } = await supabase
+
+    const { data: prayer, error } = await supabase
       .from('prayer_requests')
       .select(`
         *,
-        user:user_id (
-          id,
-          display_name,
-          avatar_url
-        ),
-        interactions:prayer_interactions (
-          id,
-          interaction_type,
-          message,
-          is_anonymous,
-          created_at,
-          user:user_id (
-            id,
-            display_name,
-            avatar_url
-          )
-        )
+        users!inner(display_name, sw_code)
       `)
       .eq('id', id)
       .is('deleted_at', null)
       .single();
-    
-    if (error || !request) {
+
+    if (error || !prayer) {
       return res.status(404).json({
         error: 'Not found',
-        message: 'Prayer request not found'
+        message: 'Prayer not found'
       });
     }
-    
-    // Check visibility permissions
-    if (request.visibility === 'private' && request.user_id !== req.userId) {
+
+    // Check access
+    if (prayer.visibility === 'private' && prayer.user_id !== req.userId) {
       return res.status(403).json({
         error: 'Forbidden',
-        message: 'This prayer request is private'
+        message: 'This prayer is private'
       });
     }
-    
-    // Hide user info for anonymous
-    const processedRequest = {
-      ...request,
-      user: request.is_anonymous ? null : request.user,
-      interactions: request.interactions?.map(i => ({
-        ...i,
-        user: i.is_anonymous ? null : i.user
-      }))
-    };
-    
-    res.json({ request: processedRequest });
-  } catch (err) {
-    next(err);
-  }
-});
 
-// POST /api/prayers/requests/:id/pray - Pray for a request
-router.post('/requests/:id/pray', async (req, res, next) => {
-  try {
-    const supabase = req.app.get('supabase');
-    const { id } = req.params;
-    const { message, isAnonymous = false } = req.body;
-    
-    // Verify request exists
-    const { data: request } = await supabase
-      .from('prayer_requests')
-      .select('id, user_id')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .single();
-    
-    if (!request) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Prayer request not found'
-      });
-    }
-    
-    // Create interaction
-    const { data: interaction, error } = await supabase
-      .from('prayer_interactions')
-      .insert({
-        prayer_request_id: id,
-        user_id: req.userId,
-        interaction_type: 'prayed',
-        message: message || null,
-        is_anonymous: isAnonymous
-      })
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    // Update user's total prayers offered
-    await supabase
-      .from('users')
-      .update({
-        total_prayers_offered: req.user.total_prayers_offered + 1
-      })
-      .eq('id', req.userId);
-    
-    // Update prayer streak
-    await updatePrayerStreak(supabase, req.userId);
-    
-    // Create notification for request owner (if not anonymous and not self)
-    if (!isAnonymous && request.user_id !== req.userId) {
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: request.user_id,
-          title: 'Someone prayed for you',
-          body: `${req.user.display_name} prayed for your request`,
-          notification_type: 'prayer_received',
-          action_type: 'prayer_request',
-          action_id: id
+    if (prayer.visibility === 'community' && prayer.user_id !== req.userId) {
+      // Check if connected
+      const { data: connection } = await supabase
+        .from('user_connections')
+        .select('id')
+        .or(`and(requester_id.eq.${req.userId},recipient_id.eq.${prayer.user_id}),and(requester_id.eq.${prayer.user_id},recipient_id.eq.${req.userId})`)
+        .eq('status', 'accepted')
+        .single();
+
+      if (!connection) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'This prayer is only visible to the community'
         });
+      }
     }
-    
-    res.status(201).json({ interaction });
-  } catch (err) {
-    next(err);
-  }
-});
 
-// POST /api/prayers/requests/:id/encourage - Send encouragement
-router.post('/requests/:id/encourage', async (req, res, next) => {
-  try {
-    const supabase = req.app.get('supabase');
-    const { id } = req.params;
-    const { message, isAnonymous = false } = req.body;
-    
-    if (!message || message.trim().length === 0) {
-      return res.status(400).json({
-        error: 'Bad request',
-        message: 'Encouragement message is required'
-      });
-    }
-    
-    // Verify request exists
-    const { data: request } = await supabase
-      .from('prayer_requests')
-      .select('id, user_id')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .single();
-    
-    if (!request) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Prayer request not found'
-      });
-    }
-    
-    // Create interaction
-    const { data: interaction, error } = await supabase
+    // Get interactions
+    const { data: interactions } = await supabase
       .from('prayer_interactions')
-      .insert({
-        prayer_request_id: id,
-        user_id: req.userId,
-        interaction_type: 'encouraged',
-        message: message.trim(),
-        is_anonymous: isAnonymous
-      })
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    // Create notification for request owner
-    if (request.user_id !== req.userId) {
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: request.user_id,
-          title: 'You received encouragement',
-          body: isAnonymous 
-            ? 'Someone sent you an encouraging message'
-            : `${req.user.display_name} sent you encouragement`,
-          notification_type: 'encouragement_received',
-          action_type: 'prayer_request',
-          action_id: id
-        });
-    }
-    
-    res.status(201).json({ interaction });
-  } catch (err) {
-    next(err);
-  }
-});
+      .select('user_id')
+      .eq('prayer_id', id)
+      .eq('interaction_type', 'prayed');
 
-// PATCH /api/prayers/requests/:id/answered - Mark as answered
-router.patch('/requests/:id/answered', async (req, res, next) => {
-  try {
-    const supabase = req.app.get('supabase');
-    const { id } = req.params;
-    const { testimony } = req.body;
-    
-    const { data: request, error } = await supabase
-      .from('prayer_requests')
-      .update({
-        status: 'answered',
-        answered_at: new Date().toISOString(),
-        answered_testimony: testimony || null
-      })
-      .eq('id', id)
-      .eq('user_id', req.userId)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    if (!request) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Prayer request not found or not yours'
-      });
-    }
-    
-    res.json({ request });
-  } catch (err) {
-    next(err);
-  }
-});
+    const hasPrayed = interactions?.some(i => i.user_id === req.userId);
 
-// DELETE /api/prayers/requests/:id - Delete prayer request
-router.delete('/requests/:id', async (req, res, next) => {
-  try {
-    const supabase = req.app.get('supabase');
-    const { id } = req.params;
-    
-    const { data, error } = await supabase
-      .from('prayer_requests')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('user_id', req.userId)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    if (!data) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Prayer request not found or not yours'
-      });
-    }
-    
-    res.json({ message: 'Prayer request deleted', id });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// ============================================================================
-// PRAYER JOURNAL (Personal)
-// ============================================================================
-
-// GET /api/prayers/journal - Get personal prayer journal
-router.get('/journal', async (req, res, next) => {
-  try {
-    const supabase = req.app.get('supabase');
-    const { limit = 20, offset = 0, entryType, answered } = req.query;
-    
-    let query = supabase
-      .from('prayer_journal')
-      .select(`
-        *,
-        scripture:scripture_id (
-          id,
-          reference
-        )
-      `, { count: 'exact' })
-      .eq('user_id', req.userId)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-    
-    if (entryType) {
-      query = query.eq('entry_type', entryType);
-    }
-    
-    if (answered !== undefined) {
-      query = query.eq('is_answered', answered === 'true');
-    }
-    
-    const { data: entries, error, count } = await query;
-    
-    if (error) throw error;
-    
     res.json({
-      entries,
-      pagination: {
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        total: count
+      prayer: {
+        ...prayer,
+        author: prayer.is_anonymous ? {
+          display_name: 'Anonymous'
+        } : {
+          display_name: prayer.users.display_name,
+          sw_code: prayer.users.sw_code
+        },
+        pray_count: interactions?.length || 0,
+        has_prayed: hasPrayed
       }
     });
   } catch (err) {
@@ -472,203 +290,169 @@ router.get('/journal', async (req, res, next) => {
   }
 });
 
-// POST /api/prayers/journal - Create journal entry
-router.post('/journal', async (req, res, next) => {
-  try {
-    const supabase = req.app.get('supabase');
-    const { 
-      title, 
-      content, 
-      entryType = 'prayer', 
-      scriptureId, 
-      scriptureReference,
-      sharedToGroupId 
-    } = req.body;
-    
-    if (!content || content.trim().length === 0) {
-      return res.status(400).json({
-        error: 'Bad request',
-        message: 'Journal entry content is required'
-      });
-    }
-    
-    const validTypes = ['prayer', 'gratitude', 'confession', 'intercession', 'praise'];
-    if (!validTypes.includes(entryType)) {
-      return res.status(400).json({
-        error: 'Bad request',
-        message: `Entry type must be one of: ${validTypes.join(', ')}`
-      });
-    }
-    
-    const { data: entry, error } = await supabase
-      .from('prayer_journal')
-      .insert({
-        user_id: req.userId,
-        title: title || null,
-        content: content.trim(),
-        entry_type: entryType,
-        scripture_id: scriptureId || null,
-        scripture_reference: scriptureReference || null,
-        shared_to_group_id: sharedToGroupId || null
-      })
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    // Update prayer streak
-    await updatePrayerStreak(supabase, req.userId);
-    
-    res.status(201).json({ entry });
-  } catch (err) {
-    next(err);
-  }
-});
+// ============================================================================
+// PATCH /api/prayers/:id - Update prayer
+// ============================================================================
 
-// GET /api/prayers/journal/:id - Get specific journal entry
-router.get('/journal/:id', async (req, res, next) => {
+router.patch('/:id', async (req, res, next) => {
   try {
     const supabase = req.app.get('supabase');
     const { id } = req.params;
-    
-    const { data: entry, error } = await supabase
-      .from('prayer_journal')
-      .select(`
-        *,
-        scripture:scripture_id (
-          id,
-          reference,
-          text_esv
-        )
-      `)
+    const { content, visibility, is_anonymous, category, is_answered, answer_notes } = req.body;
+
+    // Verify ownership
+    const { data: existing } = await supabase
+      .from('prayer_requests')
+      .select('id')
       .eq('id', id)
       .eq('user_id', req.userId)
       .is('deleted_at', null)
       .single();
-    
-    if (error || !entry) {
+
+    if (!existing) {
       return res.status(404).json({
         error: 'Not found',
-        message: 'Journal entry not found'
+        message: 'Prayer not found'
       });
     }
-    
-    res.json({ entry });
-  } catch (err) {
-    next(err);
-  }
-});
 
-// PATCH /api/prayers/journal/:id - Update journal entry
-router.patch('/journal/:id', async (req, res, next) => {
-  try {
-    const supabase = req.app.get('supabase');
-    const { id } = req.params;
-    const { title, content, isAnswered, answeredNotes } = req.body;
-    
     const updates = {};
-    if (title !== undefined) updates.title = title;
-    if (content !== undefined) updates.content = content;
-    if (isAnswered !== undefined) {
-      updates.is_answered = isAnswered;
-      if (isAnswered) {
+    if (content !== undefined) updates.content = content.trim();
+    if (visibility !== undefined) updates.visibility = visibility;
+    if (is_anonymous !== undefined) updates.is_anonymous = is_anonymous;
+    if (category !== undefined) updates.category = category;
+    if (is_answered !== undefined) {
+      updates.is_answered = is_answered;
+      if (is_answered) {
         updates.answered_at = new Date().toISOString();
-        if (answeredNotes) updates.answered_notes = answeredNotes;
       }
     }
-    
-    const { data: entry, error } = await supabase
-      .from('prayer_journal')
+    if (answer_notes !== undefined) updates.answer_notes = answer_notes;
+
+    const { data: prayer, error } = await supabase
+      .from('prayer_requests')
       .update(updates)
       .eq('id', id)
-      .eq('user_id', req.userId)
       .select()
       .single();
-    
+
     if (error) throw error;
-    
-    if (!entry) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Journal entry not found'
-      });
-    }
-    
-    res.json({ entry });
+
+    res.json({ prayer });
   } catch (err) {
     next(err);
   }
 });
 
-// DELETE /api/prayers/journal/:id - Delete journal entry
-router.delete('/journal/:id', async (req, res, next) => {
+// ============================================================================
+// DELETE /api/prayers/:id - Soft delete prayer
+// ============================================================================
+
+router.delete('/:id', async (req, res, next) => {
   try {
     const supabase = req.app.get('supabase');
     const { id } = req.params;
-    
+
     const { data, error } = await supabase
-      .from('prayer_journal')
+      .from('prayer_requests')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', req.userId)
+      .is('deleted_at', null)
       .select()
       .single();
-    
-    if (error) throw error;
-    
-    if (!data) {
+
+    if (error || !data) {
       return res.status(404).json({
         error: 'Not found',
-        message: 'Journal entry not found'
+        message: 'Prayer not found'
       });
     }
-    
-    res.json({ message: 'Journal entry deleted', id });
+
+    res.json({ message: 'Prayer deleted' });
   } catch (err) {
     next(err);
   }
 });
 
 // ============================================================================
-// USER'S OWN REQUESTS
+// POST /api/prayers/:id/pray - Mark as prayed for
 // ============================================================================
 
-// GET /api/prayers/my-requests - Get user's own prayer requests
-router.get('/my-requests', async (req, res, next) => {
+router.post('/:id/pray', async (req, res, next) => {
   try {
     const supabase = req.app.get('supabase');
-    const { limit = 20, offset = 0, status } = req.query;
-    
-    let query = supabase
+    const { id } = req.params;
+
+    // Verify prayer exists and is accessible
+    const { data: prayer } = await supabase
       .from('prayer_requests')
-      .select(`
-        *,
-        interactions:prayer_interactions (
-          id,
-          interaction_type,
-          created_at
-        )
-      `, { count: 'exact' })
-      .eq('user_id', req.userId)
+      .select('id, user_id, visibility')
+      .eq('id', id)
       .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-    
-    if (status) {
-      query = query.eq('status', status);
+      .single();
+
+    if (!prayer) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: 'Prayer not found'
+      });
     }
-    
-    const { data: requests, error, count } = await query;
-    
-    if (error) throw error;
-    
-    res.json({
-      requests,
-      pagination: {
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        total: count
+
+    // Check access for non-public prayers
+    if (prayer.visibility === 'community' && prayer.user_id !== req.userId) {
+      const { data: connection } = await supabase
+        .from('user_connections')
+        .select('id')
+        .or(`and(requester_id.eq.${req.userId},recipient_id.eq.${prayer.user_id}),and(requester_id.eq.${prayer.user_id},recipient_id.eq.${req.userId})`)
+        .eq('status', 'accepted')
+        .single();
+
+      if (!connection) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Cannot pray for this prayer'
+        });
       }
+    }
+
+    // Check if already prayed
+    const { data: existing } = await supabase
+      .from('prayer_interactions')
+      .select('id')
+      .eq('prayer_id', id)
+      .eq('user_id', req.userId)
+      .eq('interaction_type', 'prayed')
+      .single();
+
+    if (existing) {
+      return res.status(400).json({
+        error: 'Already prayed',
+        message: 'You have already prayed for this request'
+      });
+    }
+
+    // Create interaction
+    const { error } = await supabase
+      .from('prayer_interactions')
+      .insert({
+        prayer_id: id,
+        user_id: req.userId,
+        interaction_type: 'prayed'
+      });
+
+    if (error) throw error;
+
+    // Get new count
+    const { data: interactions } = await supabase
+      .from('prayer_interactions')
+      .select('id')
+      .eq('prayer_id', id)
+      .eq('interaction_type', 'prayed');
+
+    res.json({
+      message: 'Prayer recorded 🙏',
+      pray_count: interactions?.length || 1
     });
   } catch (err) {
     next(err);
@@ -676,33 +460,24 @@ router.get('/my-requests', async (req, res, next) => {
 });
 
 // ============================================================================
-// HELPER FUNCTIONS
+// GET /api/prayers/categories - Get available categories
 // ============================================================================
 
-async function updatePrayerStreak(supabase, userId) {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    
-    const { data: existing } = await supabase
-      .from('user_streaks')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('streak_date', today)
-      .eq('activity_type', 'prayer')
-      .single();
-    
-    if (!existing) {
-      await supabase
-        .from('user_streaks')
-        .insert({
-          user_id: userId,
-          streak_date: today,
-          activity_type: 'prayer'
-        });
-    }
-  } catch (err) {
-    console.error('Error updating prayer streak:', err);
-  }
-}
+router.get('/meta/categories', async (req, res, next) => {
+  res.json({
+    categories: [
+      { id: 'gratitude', name: 'Gratitude', emoji: '🙏' },
+      { id: 'healing', name: 'Healing', emoji: '💚' },
+      { id: 'guidance', name: 'Guidance', emoji: '🧭' },
+      { id: 'family', name: 'Family', emoji: '👨‍👩‍👧‍👦' },
+      { id: 'work', name: 'Work & Career', emoji: '💼' },
+      { id: 'relationships', name: 'Relationships', emoji: '❤️' },
+      { id: 'faith', name: 'Faith & Growth', emoji: '✨' },
+      { id: 'provision', name: 'Provision', emoji: '🍞' },
+      { id: 'peace', name: 'Peace & Comfort', emoji: '🕊️' },
+      { id: 'other', name: 'Other', emoji: '📝' }
+    ]
+  });
+});
 
 module.exports = router;
