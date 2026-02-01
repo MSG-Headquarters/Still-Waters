@@ -2,6 +2,8 @@
  * AI Service
  * Handles all AI-related functionality including prompt building,
  * crisis detection, and conversation management
+ * 
+ * Updated: Added web search capability for current events
  */
 
 // ============================================================================
@@ -107,7 +109,14 @@ CRITICAL BOUNDARIES:
 - Never dismiss genuine mental health concerns with "just pray more"
 - Never argue about controversial theological secondary issues
 - Always maintain appropriate relational boundaries
-- If crisis signals are detected, prioritize safety over spiritual content`;
+- If crisis signals are detected, prioritize safety over spiritual content
+
+WEB SEARCH CAPABILITY:
+- You have access to web search for current events, news, and recent information
+- Use web search when the user asks about current events, recent news, or things that may have changed since your training
+- When discussing current events, search first to ensure accuracy
+- Always cite your sources when using information from web search
+- Be sensitive when discussing tragic news events - lead with compassion`;
 
 // ============================================================================
 // TOPIC-SPECIFIC PROMPT MODULES
@@ -238,7 +247,28 @@ APPROACH FOR FAITH/DOUBT:
 AVOID:
 - Becoming defensive
 - Treating all doubt the same
-- Providing pat answers to complex questions`
+- Providing pat answers to complex questions`,
+
+  currentEvents: `
+TOPIC FOCUS: CURRENT EVENTS / NEWS
+
+APPROACH FOR CURRENT EVENTS:
+- Use web search to get accurate, up-to-date information
+- Lead with compassion when discussing tragedies
+- Help process news through a faith lens without being preachy
+- Acknowledge the complexity of world events
+- Offer hope without minimizing real suffering
+
+SCRIPTURES FOR PROCESSING DIFFICULT NEWS:
+- Romans 8:28 (God works in all things)
+- Psalm 46:1-3 (God is our refuge)
+- Matthew 5:4 (Blessed are those who mourn)
+- Lamentations 3:22-23 (His mercies are new every morning)
+
+AVOID:
+- Making political statements
+- Claiming to know God's specific purposes in tragedies
+- Dismissing real suffering with platitudes`
 };
 
 // ============================================================================
@@ -288,14 +318,14 @@ Would you be open to exploring what that might look like?`
  */
 function detectCrisisSignals(message, conversationHistory = []) {
   const lowerMessage = message.toLowerCase();
-  
+
   // Check for immediate risk keywords
   for (const keyword of CRISIS_KEYWORDS.immediate) {
     if (lowerMessage.includes(keyword)) {
       return CRISIS_LEVELS.IMMEDIATE;
     }
   }
-  
+
   // Check for elevated concern keywords
   let elevatedCount = 0;
   for (const keyword of CRISIS_KEYWORDS.elevated) {
@@ -303,38 +333,38 @@ function detectCrisisSignals(message, conversationHistory = []) {
       elevatedCount++;
     }
   }
-  
+
   // Multiple elevated signals = elevated risk
   if (elevatedCount >= 2) {
     return CRISIS_LEVELS.ELEVATED;
   }
-  
+
   // Check for escalation pattern in conversation history
   if (conversationHistory.length >= 3) {
     const recentUserMessages = conversationHistory
       .filter(m => m.role === 'user')
       .slice(-3)
       .map(m => m.content.toLowerCase());
-    
+
     let escalationScore = 0;
     for (const msg of recentUserMessages) {
       for (const keyword of CRISIS_KEYWORDS.elevated) {
         if (msg.includes(keyword)) escalationScore++;
       }
     }
-    
+
     if (escalationScore >= 3) {
       return CRISIS_LEVELS.ELEVATED;
     }
   }
-  
+
   // Check for pastoral concern keywords
   for (const keyword of CRISIS_KEYWORDS.pastoral) {
     if (lowerMessage.includes(keyword)) {
       return CRISIS_LEVELS.PASTORAL;
     }
   }
-  
+
   return CRISIS_LEVELS.NONE;
 }
 
@@ -348,8 +378,50 @@ const TOPIC_KEYWORDS = {
   relationships: ['relationship', 'marriage', 'spouse', 'husband', 'wife', 'friend', 'family', 'parent', 'child', 'conflict', 'argument'],
   forgiveness: ['forgive', 'forgiveness', 'bitter', 'resentment', 'hurt', 'betrayed', 'wronged', 'anger', 'grudge'],
   grief: ['grief', 'loss', 'died', 'death', 'mourning', 'miss', 'passed away', 'funeral', 'gone'],
-  faith: ['faith', 'doubt', 'believe', 'belief', 'question', 'why god', 'does god', 'trust god', 'struggling to believe']
+  faith: ['faith', 'doubt', 'believe', 'belief', 'question', 'why god', 'does god', 'trust god', 'struggling to believe'],
+  currentEvents: ['news', 'happened', 'shooting', 'election', 'president', 'assassination', 'died today', 'just heard', 'breaking', 'tragedy', 'disaster', 'war', 'conflict']
 };
+
+/**
+ * Detect if message likely needs current information (web search)
+ * @param {string} message - The user's message
+ * @returns {boolean} Whether web search should be used
+ */
+function needsCurrentInfo(message) {
+  const lowerMessage = message.toLowerCase();
+  
+  // Keywords that suggest need for current information
+  const currentInfoKeywords = [
+    'today', 'yesterday', 'this week', 'recently', 'just happened',
+    'breaking news', 'current', 'latest', 'what happened to',
+    'is he alive', 'is she alive', 'did they', 'have they',
+    'news about', 'heard about', 'assassination', 'shooting',
+    'election', 'died', 'death of', 'killed', 'attack',
+    'what\'s going on with', 'update on', 'status of'
+  ];
+  
+  for (const keyword of currentInfoKeywords) {
+    if (lowerMessage.includes(keyword)) {
+      return true;
+    }
+  }
+  
+  // Check for questions about specific people that might need verification
+  const personQuestionPatterns = [
+    /is .+ (still )?(alive|dead|president|ceo|married)/i,
+    /did .+ (die|pass away|get killed|resign)/i,
+    /what happened to .+/i,
+    /where is .+ (now|today)/i
+  ];
+  
+  for (const pattern of personQuestionPatterns) {
+    if (pattern.test(message)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
 
 /**
  * Detect primary topic from message
@@ -360,7 +432,7 @@ const TOPIC_KEYWORDS = {
 function detectTopics(message, currentTopic = null) {
   const lowerMessage = message.toLowerCase();
   const detectedTopics = [];
-  
+
   for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
     for (const keyword of keywords) {
       if (lowerMessage.includes(keyword)) {
@@ -371,12 +443,12 @@ function detectTopics(message, currentTopic = null) {
       }
     }
   }
-  
+
   // Include current topic if set and not already detected
   if (currentTopic && !detectedTopics.includes(currentTopic)) {
     detectedTopics.push(currentTopic);
   }
-  
+
   return detectedTopics.length > 0 ? detectedTopics : ['general'];
 }
 
@@ -390,11 +462,12 @@ function detectTopics(message, currentTopic = null) {
  * @param {Object} conversation - Conversation object with mood/topic
  * @param {Array} scriptures - Relevant scriptures for context
  * @param {number} crisisLevel - Detected crisis level
+ * @param {boolean} useWebSearch - Whether web search is enabled
  * @returns {string} Complete system prompt
  */
-function buildSystemPrompt(user, conversation, scriptures = [], crisisLevel = 0) {
+function buildSystemPrompt(user, conversation, scriptures = [], crisisLevel = 0, useWebSearch = false) {
   let prompt = BASE_SYSTEM_PROMPT;
-  
+
   // Add mood-specific guidance
   if (conversation.initial_mood && MOOD_CONFIGURATIONS[conversation.initial_mood]) {
     const moodConfig = MOOD_CONFIGURATIONS[conversation.initial_mood];
@@ -404,7 +477,7 @@ CURRENT MOOD CONTEXT: ${conversation.initial_mood.toUpperCase()}
 Tone: ${moodConfig.tone}
 Approach: ${moodConfig.approach}`;
   }
-  
+
   // Add topic-specific modules
   const topics = conversation.primary_topic ? [conversation.primary_topic] : [];
   for (const topic of topics) {
@@ -412,7 +485,25 @@ Approach: ${moodConfig.approach}`;
       prompt += '\n' + TOPIC_MODULES[topic];
     }
   }
-  
+
+  // Add web search guidance if enabled
+  if (useWebSearch) {
+    prompt += `
+
+🔍 WEB SEARCH ENABLED
+You have access to web search for this conversation. Use it when:
+- The user asks about current events or recent news
+- You need to verify if someone is alive/dead or their current status
+- The user references something that may have happened recently
+- You're unsure about current facts that may have changed
+
+When using web search results:
+- Verify information before stating it as fact
+- Be compassionate when delivering difficult news
+- Help the user process news through a faith perspective
+- Cite your sources when appropriate`;
+  }
+
   // Add crisis instructions if needed
   if (crisisLevel >= CRISIS_LEVELS.PASTORAL) {
     prompt += `
@@ -424,7 +515,7 @@ The user may be experiencing distress that requires careful handling.
 - Gently encourage professional help
 - If level is IMMEDIATE (3), provide crisis resources prominently`;
   }
-  
+
   // Add user context
   prompt += `
 
@@ -445,7 +536,7 @@ ${scriptures.map(s => `- ${s.reference}: "${s.text}"`).join('\n')}
 Note: Use these scriptures thoughtfully. You don't need to quote all of them.
 Choose what's most relevant to the specific situation.`;
   }
-  
+
   return prompt;
 }
 
@@ -460,12 +551,12 @@ function buildMessageHistory(messageHistory, newMessage) {
     role: m.role,
     content: m.content
   }));
-  
+
   messages.push({
     role: 'user',
     content: newMessage
   });
-  
+
   return messages;
 }
 
@@ -488,7 +579,7 @@ async function generateResponse(anthropic, {
 }) {
   // Detect crisis level
   const crisisLevel = detectCrisisSignals(newMessage, messageHistory);
-  
+
   // If immediate crisis, return crisis response without AI call
   if (crisisLevel === CRISIS_LEVELS.IMMEDIATE) {
     return {
@@ -499,37 +590,60 @@ async function generateResponse(anthropic, {
       topics: ['crisis']
     };
   }
-  
+
   // Detect topics
   const topics = detectTopics(newMessage, conversation.primary_topic);
   
+  // Check if we need web search for current events
+  const useWebSearch = needsCurrentInfo(newMessage);
+
   // Build prompts
-  const systemPrompt = buildSystemPrompt(user, conversation, scriptures, crisisLevel);
+  const systemPrompt = buildSystemPrompt(user, conversation, scriptures, crisisLevel, useWebSearch);
   const messages = buildMessageHistory(messageHistory, newMessage);
-  
+
   try {
-    // Call Claude API
-    const response = await anthropic.messages.create({
+    // Build API request options
+    const apiOptions = {
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: systemPrompt,
       messages: messages
-    });
+    };
     
-    let content = response.content[0].text;
-    
+    // Add web search tool if needed
+    if (useWebSearch) {
+      apiOptions.tools = [
+        {
+          type: 'web_search_20250305',
+          name: 'web_search'
+        }
+      ];
+    }
+
+    // Call Claude API
+    const response = await anthropic.messages.create(apiOptions);
+
+    // Extract text content from response (may have multiple blocks if tools were used)
+    let content = '';
+    for (const block of response.content) {
+      if (block.type === 'text') {
+        content += block.text;
+      }
+    }
+
     // If elevated crisis, prepend gentle crisis acknowledgment
     if (crisisLevel === CRISIS_LEVELS.ELEVATED) {
       // The AI should handle this based on the system prompt
       // But we flag it for human review
     }
-    
+
     return {
       content,
       crisisLevel,
       flagForReview: crisisLevel >= CRISIS_LEVELS.ELEVATED,
       scriptures: extractScriptureReferences(content),
       topics,
+      usedWebSearch: useWebSearch,
       usage: {
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens
@@ -562,6 +676,7 @@ module.exports = {
   MOOD_CONFIGURATIONS,
   detectCrisisSignals,
   detectTopics,
+  needsCurrentInfo,
   buildSystemPrompt,
   buildMessageHistory,
   generateResponse,
