@@ -1019,13 +1019,12 @@ END $$;
 -- ============================================================================
 
 -- Update search vectors for all verses
-UPDATE scripture_verses SET search_vector = 
-    setweight(to_tsvector('english', COALESCE(reference, '')), 'A') ||
-    setweight(to_tsvector('english', COALESCE(text_esv, '')), 'B') ||
-    setweight(to_tsvector('english', COALESCE(text_niv, '')), 'C');
+-- [removed] search_vector is a GENERATED ALWAYS column in schema.sql; it
+-- populates automatically on insert. Manual UPDATE is invalid and was
+-- rolling back the whole seed in Supabase's single-transaction editor.
 
 -- Create GIN index for fast full-text search
-CREATE INDEX IF NOT EXISTS idx_scripture_search ON scripture_verses USING GIN(search_vector);
+-- [removed] duplicate of scripture_verses_search_idx created in schema.sql
 
 -- Create indexes for topic lookups
 CREATE INDEX IF NOT EXISTS idx_scripture_topic_map_scripture ON scripture_topic_mappings(scripture_id);
