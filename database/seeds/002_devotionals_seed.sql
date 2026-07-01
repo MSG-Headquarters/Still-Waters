@@ -1,36 +1,17 @@
--- ============================================================================
--- YESHUA GUIDE - DEVOTIONAL CONTENT SEED
--- 30-day devotional series with reflections
--- Version 1.0.0
--- ============================================================================
+-- =============================================================================
+-- 002_devotionals_seed.sql — Psalm 23 devotionals loaded into public.devotionals
+-- (remapped from the retired devotional_content/series model to match the API).
+-- scheduled_date is anchored to the day you run this, so the series rotates daily
+-- for its length via the route's tier-1 (scheduled_date = today) selection.
+-- Idempotent + re-schedulable via ON CONFLICT (title).
+-- Run AFTER migration 002_devotionals_columns.sql.
+-- =============================================================================
 
-DO $$
-DECLARE
-    series_id UUID;
-BEGIN
-    -- Create the devotional series
-    INSERT INTO devotional_series (
-        title,
-        description,
-        theme,
-        total_days,
-        difficulty_level,
-        is_active
-    ) VALUES (
-        'Walking with the Shepherd',
-        'A 30-day journey exploring what it means to be led by the Good Shepherd.',
-        'trust',
-        30,
-        'beginner',
-        true
-    ) RETURNING id INTO series_id;
-
-    -- Day 1: The Lord is My Shepherd
-    INSERT INTO devotional_content (
-        series_id, day_number, title, scripture_reference, scripture_text,
-        reflection, prayer_prompt, action_step, tags, estimated_reading_minutes
-    ) VALUES (
-        series_id, 1,
+INSERT INTO public.devotionals
+  (day_of_year, scheduled_date, is_active, title, scripture_reference, scripture_text,
+   reflection, prayer_prompt, action_step, tags, estimated_reading_minutes)
+VALUES (
+    1, current_date + 0, true,
         'The Lord is My Shepherd',
         'Psalm 23:1',
         'The LORD is my shepherd; I shall not want.',
@@ -39,14 +20,15 @@ BEGIN
         'Write "The LORD is my shepherd" where you''ll see it. Each time, say it aloud as a personal declaration.',
         ARRAY['trust', 'psalm-23', 'provision'],
         4
-    );
+)
+ON CONFLICT (title) DO UPDATE SET
+  scheduled_date = EXCLUDED.scheduled_date, is_active = true;
 
-    -- Day 2: Green Pastures
-    INSERT INTO devotional_content (
-        series_id, day_number, title, scripture_reference, scripture_text,
-        reflection, prayer_prompt, action_step, tags, estimated_reading_minutes
-    ) VALUES (
-        series_id, 2,
+INSERT INTO public.devotionals
+  (day_of_year, scheduled_date, is_active, title, scripture_reference, scripture_text,
+   reflection, prayer_prompt, action_step, tags, estimated_reading_minutes)
+VALUES (
+    2, current_date + 1, true,
         'Green Pastures',
         'Psalm 23:2a',
         'He makes me lie down in green pastures.',
@@ -55,14 +37,15 @@ BEGIN
         'Schedule 15 minutes of deliberate rest—no phone, no tasks. Simply be present with God.',
         ARRAY['rest', 'psalm-23', 'peace'],
         4
-    );
+)
+ON CONFLICT (title) DO UPDATE SET
+  scheduled_date = EXCLUDED.scheduled_date, is_active = true;
 
-    -- Day 3: Still Waters
-    INSERT INTO devotional_content (
-        series_id, day_number, title, scripture_reference, scripture_text,
-        reflection, prayer_prompt, action_step, tags, estimated_reading_minutes
-    ) VALUES (
-        series_id, 3,
+INSERT INTO public.devotionals
+  (day_of_year, scheduled_date, is_active, title, scripture_reference, scripture_text,
+   reflection, prayer_prompt, action_step, tags, estimated_reading_minutes)
+VALUES (
+    3, current_date + 2, true,
         'Still Waters',
         'Psalm 23:2b',
         'He leads me beside still waters.',
@@ -71,14 +54,15 @@ BEGIN
         'Identify one "rushing stream"—a source of agitation you keep returning to. Consider stepping away this week.',
         ARRAY['peace', 'psalm-23', 'rest'],
         4
-    );
+)
+ON CONFLICT (title) DO UPDATE SET
+  scheduled_date = EXCLUDED.scheduled_date, is_active = true;
 
-    -- Day 4: Soul Restoration
-    INSERT INTO devotional_content (
-        series_id, day_number, title, scripture_reference, scripture_text,
-        reflection, prayer_prompt, action_step, tags, estimated_reading_minutes
-    ) VALUES (
-        series_id, 4,
+INSERT INTO public.devotionals
+  (day_of_year, scheduled_date, is_active, title, scripture_reference, scripture_text,
+   reflection, prayer_prompt, action_step, tags, estimated_reading_minutes)
+VALUES (
+    4, current_date + 3, true,
         'Soul Restoration',
         'Psalm 23:3a',
         'He restores my soul.',
@@ -87,14 +71,15 @@ BEGIN
         'Honest inventory: Where is your soul depleted? Name it as an invitation for the Shepherd''s restoration.',
         ARRAY['restoration', 'psalm-23', 'healing'],
         4
-    );
+)
+ON CONFLICT (title) DO UPDATE SET
+  scheduled_date = EXCLUDED.scheduled_date, is_active = true;
 
-    -- Day 5: Paths of Righteousness
-    INSERT INTO devotional_content (
-        series_id, day_number, title, scripture_reference, scripture_text,
-        reflection, prayer_prompt, action_step, tags, estimated_reading_minutes
-    ) VALUES (
-        series_id, 5,
+INSERT INTO public.devotionals
+  (day_of_year, scheduled_date, is_active, title, scripture_reference, scripture_text,
+   reflection, prayer_prompt, action_step, tags, estimated_reading_minutes)
+VALUES (
+    5, current_date + 4, true,
         'Paths of Righteousness',
         'Psalm 23:3b',
         'He leads me in paths of righteousness for his name''s sake.',
@@ -103,14 +88,15 @@ BEGIN
         'Where have you been taking shortcuts? What would trusting the Shepherd''s route look like?',
         ARRAY['guidance', 'psalm-23', 'righteousness'],
         4
-    );
+)
+ON CONFLICT (title) DO UPDATE SET
+  scheduled_date = EXCLUDED.scheduled_date, is_active = true;
 
-    -- Day 6: The Valley
-    INSERT INTO devotional_content (
-        series_id, day_number, title, scripture_reference, scripture_text,
-        reflection, prayer_prompt, action_step, tags, estimated_reading_minutes
-    ) VALUES (
-        series_id, 6,
+INSERT INTO public.devotionals
+  (day_of_year, scheduled_date, is_active, title, scripture_reference, scripture_text,
+   reflection, prayer_prompt, action_step, tags, estimated_reading_minutes)
+VALUES (
+    6, current_date + 5, true,
         'The Valley',
         'Psalm 23:4a',
         'Even though I walk through the valley of the shadow of death, I will fear no evil.',
@@ -119,14 +105,15 @@ BEGIN
         'If in a valley, write down when you entered. Below it write: "Walking THROUGH." Declare there is another side.',
         ARRAY['suffering', 'psalm-23', 'courage'],
         4
-    );
+)
+ON CONFLICT (title) DO UPDATE SET
+  scheduled_date = EXCLUDED.scheduled_date, is_active = true;
 
-    -- Day 7: You Are With Me
-    INSERT INTO devotional_content (
-        series_id, day_number, title, scripture_reference, scripture_text,
-        reflection, prayer_prompt, action_step, tags, estimated_reading_minutes
-    ) VALUES (
-        series_id, 7,
+INSERT INTO public.devotionals
+  (day_of_year, scheduled_date, is_active, title, scripture_reference, scripture_text,
+   reflection, prayer_prompt, action_step, tags, estimated_reading_minutes)
+VALUES (
+    7, current_date + 6, true,
         'You Are With Me',
         'Psalm 23:4b',
         'for you are with me; your rod and your staff, they comfort me.',
@@ -135,60 +122,7 @@ BEGIN
         'Recall when God''s "rod and staff" felt uncomfortable but proved to be loving care. Thank Him specifically.',
         ARRAY['presence', 'psalm-23', 'comfort'],
         4
-    );
+)
+ON CONFLICT (title) DO UPDATE SET
+  scheduled_date = EXCLUDED.scheduled_date, is_active = true;
 
-    RAISE NOTICE 'Devotional content seed completed';
-END $$;
-
--- ============================================================================
--- STANDALONE DEVOTIONALS BY TOPIC
--- ============================================================================
-
-INSERT INTO devotional_content (
-    series_id, day_number, title, scripture_reference, scripture_text,
-    reflection, prayer_prompt, action_step, tags, estimated_reading_minutes
-) VALUES 
-(
-    NULL, NULL,
-    'The Antidote to Anxiety',
-    'Philippians 4:6-7',
-    'Do not be anxious about anything, but in everything by prayer and supplication with thanksgiving let your requests be made known to God. And the peace of God, which surpasses all understanding, will guard your hearts and your minds in Christ Jesus.',
-    'Paul''s prescription isn''t "stop feeling anxious"—that''s like telling someone with a fever to stop being sick. He redirects anxious energy into action: prayer with thanksgiving. The promise isn''t changed circumstances but guarding peace. "Guard" is military language—a garrison protecting a city. This peace "surpasses understanding"—you can''t think your way to it. It comes as a gift when we practice Paul''s rhythm.',
-    'Lord, I come with my anxiety—not to analyze it, but to exchange it. Here are my specific requests. And here is my thanksgiving. I receive Your guarding peace.',
-    'When anxiety rises: (1) acknowledge it to God, (2) make your specific request, (3) name one thing you''re thankful for. Notice what happens.',
-    ARRAY['anxiety', 'peace', 'prayer'],
-    4
-),
-(
-    NULL, NULL,
-    'The Nearness of God in Grief',
-    'Psalm 34:18',
-    'The LORD is near to the brokenhearted and saves those who are crushed in spirit.',
-    'Grief isolates. Even surrounded by people, the grieving person feels alone. Into this isolation, the psalm speaks: the Lord is near. Not far off, not repulsed by our messiness—near. "Crushed" suggests pulverized, ground to powder. And it''s precisely there that salvation appears. This doesn''t mean grief disappears. Salvation often looks like one more breath, one more hour somehow endured.',
-    'Lord, my heart is broken. I don''t ask You to explain or fix or rush me through this. I only ask You to be near. Press close. Save what is crushed in me.',
-    'Resist stuffing or rushing grief. Give yourself permission for honest mourning—tears, journaling, silence. Let God be near in it.',
-    ARRAY['grief', 'loss', 'comfort'],
-    4
-),
-(
-    NULL, NULL,
-    'When Fear Speaks First',
-    'Psalm 56:3',
-    'When I am afraid, I put my trust in you.',
-    'David doesn''t say "I never feel afraid." He acknowledges a sequence: fear comes, then trust is chosen. The feeling arrives unbidden; the response is deliberate. Fear is biological, hardwired for survival. The question isn''t whether you feel fear but what you do with it. "I put my trust in you"—not in my ability to feel confident, not in outcomes, but in You. We don''t need to feel brave; we need to know the One we''re trusting is trustworthy.',
-    'God, I am afraid. I don''t pretend otherwise. But I choose to put my trust in You—not in feelings, not in outcomes, but in Your character.',
-    'Memorize Psalm 56:3. When fear appears, say it aloud. Notice how speaking truth changes the inner atmosphere.',
-    ARRAY['fear', 'courage', 'trust'],
-    4
-),
-(
-    NULL, NULL,
-    'The Weight We Were Never Meant to Carry',
-    'Ephesians 4:31-32',
-    'Let all bitterness and wrath and anger and clamor and slander be put away from you, along with all malice. Be kind to one another, tenderhearted, forgiving one another, as God in Christ forgave you.',
-    'Paul lists a progression: bitterness festers into wrath, which hardens into anger, erupts in clamor, degrades into slander, hardens into malice. Unforgiveness is cancer with predictable metastasis. "Put away" suggests removing a garment that doesn''t fit who we are in Christ. We forgive from overflow of having been forgiven. The offenses against us, however real, are shadowed by what we committed against a holy God—which He absorbed in Christ.',
-    'Father, I''ve been wearing heavy garments of bitterness. Today I take them off. Not because they deserve forgiveness, but because I''ve been forgiven far more.',
-    'Is there someone to forgive? Write their name, then write across it: "As God in Christ forgave me."',
-    ARRAY['forgiveness', 'anger', 'freedom'],
-    4
-);
