@@ -1,3 +1,6 @@
+-- BASE SCHEMA — apply this first, then every file in database/migrations/ in
+-- numeric order (001_, 002_, ...). Do not edit column definitions here to
+-- reflect later changes; add a migration instead.
 -- =============================================================================
 -- Still Waters — Authoritative Database Schema
 -- =============================================================================
